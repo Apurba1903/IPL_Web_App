@@ -4,43 +4,338 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPL Web Application</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        form {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        select {
+            padding: 8px;
+            width: 100%;
+            max-width: 300px;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            background: #ffeeee;
+            border-radius: 4px;
+        }
+        .results {
+            margin-top: 20px;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .team-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .stat-item {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input[type="submit"] {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background: #45a049;
+        }
+    </style>
 </head>
-
 <body>
 
-    <h1>Team vs Team</h1>
+    <!-- Team vs Team Section -->
+    <div>
+        <h1>Team vs Team</h1>
 
-    <form action="/teamvteam" method="get">
+        <form action="/teamvteam" method="get">
+            <label>Select Team 1</label>
+            <select name="team1" required>
+                {% for item in teams %}
+                    <option value="{{ item }}">{{ item }}</option>
+                {% endfor %}
+            </select>
 
-        <label>Select Team 1</label>
-        <select name="team1">
-            {% for item in teams %}
-                <option>{{ item }}</option>
-            {% endfor %}
-        </select>
+            <br><br>
 
-        <br>
-        <br>
+            <label>Select Team 2</label>
+            <select name="team2" required>
+                {% for item in teams %}
+                    <option value="{{ item }}">{{ item }}</option>
+                {% endfor %}
+            </select>
 
-        <label>Select Team 2</label>
-        <select name="team2">
-            {% for item in teams %}
-                <option>{{ item }}</option>
-            {% endfor %}
-        </select>
+            <br><br>
+            <input type="submit" value="Find Track Record">
+        </form>
 
-        <br>
-        <br>
-        <input type="submit" value="Find Track Record">
+        {% if error %}
+            <div class="error">
+                <strong>Error:</strong> {{ error }}
+            </div>
+        {% endif %}
 
-    </form>
+        {% if result %}
+            <div class="results">
+                <h2>Head-to-Head Results:</h2>
+                <div class="team-stats">
+                    {% for key, value in result.items() %}
+                        <div class="stat-item">
+                            <strong>{{ key }}</strong>: {{ value }}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% elif request.args.get('team1') and request.args.get('team2') and not error %}
+            <div class="error">
+                No results found for these teams. Please try another combination.
+            </div>
+        {% endif %}
 
-    {% if result %}
-        {% for i in result %}
-            <p>{{ i }} : {{ result[i] }}</p>
-        {% endfor %}
-    {% endif %}
-    
+        <script>
+            // Preserve selected teams after form submission
+            document.addEventListener('DOMContentLoaded', function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const team1 = urlParams.get('team1');
+                const team2 = urlParams.get('team2');
+                
+                if (team1) {
+                    document.querySelector('select[name="team1"]').value = team1;
+                }
+                if (team2) {
+                    document.querySelector('select[name="team2"]').value = team2;
+                }
+            });
+        </script>
+    </div>
+
+    <!-- Team Record Section -->
+    <div>
+        <h1>Team Statistics</h1>
+
+        <form action="/team-record" method="get">
+            <label>Select Team</label>
+            <select name="team" required>
+                {% for item in teams %}
+                    <option value="{{ item }}">{{ item }}</option>
+                {% endfor %}
+            </select>
+
+            <br><br>
+            <input type="submit" value="Get Team Record">
+        </form>
+
+        {% if team_error %}
+            <div class="error">
+                <strong>Error:</strong> {{ team_error }}
+            </div>
+        {% endif %}
+
+        {% if team_result %}
+            <div class="results">
+                <h2>Team Performance:</h2>
+                
+                <div class="team-stats">
+                    <h3>Overall Performance</h3>
+                    <div class="stat-item">
+                        <strong>Matches Played:</strong> {{ team_result.overall.matchesplayed }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Won:</strong> {{ team_result.overall.won }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Lost:</strong> {{ team_result.overall.loss }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Titles Won:</strong> {{ team_result.overall.title }}
+                    </div>
+                </div>
+
+                <div class="team-stats">
+                    <h3>Performance Against Other Teams</h3>
+                    {% for opponent, stats in team_result.against.items() %}
+                        <div class="stat-item">
+                            <strong>vs {{ opponent }}:</strong>
+                            {{ stats.won }}W - {{ stats.loss }}L ({{ stats.matchesplayed }} matches)
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% elif request.args.get('team') and not team_error %}
+            <div class="error">
+                No records found for this team.
+            </div>
+        {% endif %}
+
+        <script>
+            // Preserve selected team after form submission
+            document.addEventListener('DOMContentLoaded', function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const team = urlParams.get('team');
+                
+                if (team) {
+                    document.querySelector('select[name="team"]').value = team;
+                }
+            });
+        </script>
+    </div>
+
+    <!-- Batsman Record Section -->
+    <div>
+        <h1>Batsman Statistics</h1>
+
+        <form action="/batsman-record" method="get">
+            <label>Enter Batsman Name</label>
+            <input type="text" name="batsman" required placeholder="e.g., V Kohli">
+            
+            <br><br>
+            <input type="submit" value="Get Batsman Record">
+        </form>
+
+        {% if batsman_error %}
+            <div class="error">
+                <strong>Error:</strong> {{ batsman_error }}
+            </div>
+        {% endif %}
+
+        {% if batsman_result %}
+            <div class="results">
+                <h2>{{ batsman_name }}'s Performance:</h2>
+                
+                <div class="team-stats">
+                    <h3>Overall Batting Stats</h3>
+                    <div class="stat-item">
+                        <strong>Innings:</strong> {{ batsman_result.all.innings }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Runs:</strong> {{ batsman_result.all.runs }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Average:</strong> {{ "%.2f"|format(batsman_result.all.avg) }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Strike Rate:</strong> {{ "%.2f"|format(batsman_result.all.strikeRate) }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Fours/Sixes:</strong> {{ batsman_result.all.fours }}/{{ batsman_result.all.sixes }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>50s/100s:</strong> {{ batsman_result.all.fifties }}/{{ batsman_result.all.hundreds }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Highest Score:</strong> {{ batsman_result.all.highestScore }}
+                    </div>
+                </div>
+
+                <div class="team-stats">
+                    <h3>Performance Against Teams</h3>
+                    {% for opponent, stats in batsman_result.against.items() %}
+                        <div class="stat-item">
+                            <strong>vs {{ opponent }}:</strong>
+                            {{ stats.runs }} runs in {{ stats.innings }} innings
+                            (Avg: {{ "%.2f"|format(stats.avg) }}, SR: {{ "%.2f"|format(stats.strikeRate) }})
+                            <br>
+                            {{ stats.fours }} fours, {{ stats.sixes }} sixes | 
+                            {{ stats.fifties }} fifties, {{ stats.hundreds }} hundreds
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% elif request.args.get('batsman') and not batsman_error %}
+            <div class="error">
+                No records found for this batsman.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Bowler Record Section -->
+    <div>
+        <h1>Bowler Statistics</h1>
+
+        <form action="/bowler-record" method="get">
+            <label>Enter Bowler Name</label>
+            <input type="text" name="bowler" required placeholder="e.g., JJ Bumrah">
+            
+            <br><br>
+            <input type="submit" value="Get Bowler Record">
+        </form>
+
+        {% if bowler_error %}
+            <div class="error">
+                <strong>Error:</strong> {{ bowler_error }}
+            </div>
+        {% endif %}
+
+        {% if bowler_result %}
+            <div class="results">
+                <h2>{{ bowler_name }}'s Bowling Performance:</h2>
+                
+                <div class="team-stats">
+                    <h3>Overall Bowling Stats</h3>
+                    <div class="stat-item">
+                        <strong>Innings:</strong> {{ bowler_result.all.innings }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Wickets:</strong> {{ bowler_result.all.wicket }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Average:</strong> {{ "%.2f"|format(bowler_result.all.average) if bowler_result.all.average != "Infinity" else "-" }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Economy:</strong> {{ "%.2f"|format(bowler_result.all.economy) }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Strike Rate:</strong> {{ "%.1f"|format(bowler_result.all.strikeRate) if bowler_result.all.strikeRate != "NaN" else "-" }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Best Figures:</strong> {{ bowler_result.all.best_figure }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>3+ Wicket Hauls:</strong> {{ bowler_result.all["3+W"] }}
+                    </div>
+                    <div class="stat-item">
+                        <strong>Man of the Matches:</strong> {{ bowler_result.all.mom }}
+                    </div>
+                </div>
+
+                <div class="team-stats">
+                    <h3>Performance Against Teams</h3>
+                    {% for opponent, stats in bowler_result.against.items() %}
+                        <div class="stat-item">
+                            <strong>vs {{ opponent }}:</strong>
+                            {{ stats.wicket }} wickets in {{ stats.innings }} innings
+                            (Avg: {{ "%.2f"|format(stats.average) if stats.average != "Infinity" else "-" }}, 
+                            Econ: {{ "%.2f"|format(stats.economy) }})
+                            <br>
+                            Best: {{ stats.best_figure }} | 
+                            3+W: {{ stats["3+W"] }} | 
+                            MoM: {{ stats.mom }}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% elif request.args.get('bowler') and not bowler_error %}
+            <div class="error">
+                No records found for this bowler.
+            </div>
+        {% endif %}
+    </div>
 
 </body>
 </html>
